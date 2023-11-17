@@ -121,6 +121,7 @@ val_loader = DataLoader(val_gen,batch_size=config.batch_size,shuffle=False,pin_m
 
 ## Loading the model to run
 model = timm.create_model('tf_efficientnet_b0', pretrained=True,num_classes=config.n_classes)
+# TODO if checkpoint exists, load
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model.to(device)
 
@@ -144,7 +145,7 @@ for epoch in range(0,config.epochs):
     val_metrics = evaluate(val_loader,model,criterion,epoch,train_metrics,start)
 
     # Tensorboard
-    writer.add_scalars('Loss', {'Train': train_metrics[0], 'Validation': val_metrics[1]}, epoch + 1)
+    writer.add_scalars('loss/trainval', {'train': train_metrics[0], 'validation': val_metrics[1]}, epoch + 1)
 
     # Saving the model
     if (epoch + 1)%10 == 0:
