@@ -14,6 +14,8 @@ import timm
 from utils import *
 warnings.filterwarnings('ignore')
 
+from torch.utils.tensorboard import SummaryWriter
+
 ## Writing the loss and results
 if not os.path.exists("./logs/"):
     os.mkdir("./logs/")
