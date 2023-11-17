@@ -19,6 +19,8 @@ if not os.path.exists("./logs/"):
     os.mkdir("./logs/")
 log = Logger()
 log.open("logs/%s_log_train.txt")
+log.write(f"DefaultConfigs(n_classes={config.n_classes}, img_weight={config.img_weight}, img_height={config.img_height}, "
+               f"batch_size={config.batch_size}, epochs={config.epochs}, learning_rate={config.learning_rate})")
 log.write("\n----------------------------------------------- [START %s] %s\n\n" % (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), '-' * 51))
 log.write('                           |----- Train -----|----- Valid----|---------|\n')
 log.write('mode     iter     epoch    |       loss      |        mAP    | time    |\n')
@@ -30,16 +32,19 @@ def train(train_loader,model,criterion,optimizer,epoch,valid_accuracy,start):
     model.train()
     model.training=True
     for i,(images,target,fnames) in enumerate(train_loader):
-        img = images.cuda(non_blocking=True)
+        img = images.cuda(non_blocking=True)  # lets it transfer asynchronously, improves performance
         label = target.cuda(non_blocking=True)
-        
+
+        # context manager
+        # the operations within its scope are performed with reduced precision (FP16) where possible
+        # improves performance
         with torch.cuda.amp.autocast():
             logits = model(img)
         loss = criterion(logits, label)
-        losses.update(loss.item(),images.size(0))
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()        
+        losses.update(loss.item(),images.size(0))  # average loss over batch of 16
+        scaler.scale(loss).backward()  # CALC GRADIENTS
+        scaler.step(optimizer)   # UPDATE WEIGHTS
+        scaler.update()  # UPDATE SCALER WEIGHTS (scaler improves performance)
         optimizer.zero_grad()
         scheduler.step()
 
@@ -58,14 +63,19 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,start):
     model.eval()
     model.training=False
     map = AverageMeter()
+    losses = AverageMeter()
+
     with torch.no_grad():
         for i, (images,target,fnames) in enumerate(val_loader):
             img = images.cuda(non_blocking=True)
             label = target.cuda(non_blocking=True)
-            
+
             with torch.cuda.amp.autocast():
                 logits = model(img)
-                preds = logits.softmax(1)
+                preds = logits.softmax(1)  # pytorch method to apply softmax on tensor along dim 1
+
+            loss = criterion(logits, label)
+            losses.update(loss.item(), images.size(0))
             
             valid_map5, valid_acc1, valid_acc5 = map_accuracy(preds, label)
             map.update(valid_map5,img.size(0))
@@ -75,18 +85,24 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,start):
             print(message, end='',flush=True)
         log.write("\n")  
         log.write(message)
-    return [map.avg]
+    return [map.avg, losses.avg]
 
 ## Computing the mean average precision, accuracy 
 def map_accuracy(probs, truth, k=5):
     with torch.no_grad():
+        # returns the top k probabilites predicted (value) and the index (top)
+        # obviously top 1 is the prediction
         value, top = probs.topk(k, dim=1, largest=True, sorted=True)
+        # tensor where the correct class is True
+        # [ True, False, False, False, False] -> correct top 1
+        # [False, False, True, False, False] -> correct top 3
         correct = top.eq(truth.view(-1, 1).expand_as(top))
 
         # top accuracy
         correct = correct.float().sum(0, keepdim=False)
         correct = correct / len(truth)
 
+        # correct[0] -> top 1 acc, remaining is cumulative top 5
         accs = [correct[0], correct[0] + correct[1] + correct[2] + correct[3] + correct[4]]
         map5 = correct[0] / 1 + correct[1] / 2 + correct[2] / 3 + correct[3] / 4 + correct[4] / 5
         acc1 = accs[0]
@@ -114,16 +130,23 @@ criterion = nn.CrossEntropyLoss().cuda()
 ############################# Training #################################
 start_epoch = 0
 val_metrics = [0]
-scaler = torch.cuda.amp.GradScaler()
+scaler = torch.cuda.amp.GradScaler()  # Assuming you have scaler defined somewhere
+# used to keep gradients in a good range, Mixed Precision (AMP)
 start = timer()
+writer = SummaryWriter(log_dir='logs')
+
 #train
 for epoch in range(0,config.epochs):
-    lr = get_learning_rate(optimizer)
+    lr = get_learning_rate(optimizer)  # leftover code
     train_metrics = train(train_loader,model,criterion,optimizer,epoch,val_metrics,start)
     val_metrics = evaluate(val_loader,model,criterion,epoch,train_metrics,start)
-    ## Saving the model
-    filename = "Knife-Effb0-E" + str(epoch + 1)+  ".pt"
-    torch.save(model.state_dict(), filename)
-    
 
-   
+    # Tensorboard
+    writer.add_scalars('Loss', {'Train': train_metrics[0], 'Validation': val_metrics[1]}, epoch + 1)
+
+    # Saving the model
+    if (epoch + 1)%10 == 0:
+        filename = "Knife-Effb0-E" + str(epoch + 1)+  ".pt"
+        torch.save(model.state_dict(), filename)
+    
+writer.close()

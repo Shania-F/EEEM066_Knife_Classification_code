@@ -10,6 +10,10 @@ from torchvision.io import read_image
 import numpy as np 
 import cv2
 
+import pandas as pd
+import matplotlib.pyplot as plt
+import random
+
 # create dataset class
 class knifeDataset(Dataset):
     def __init__(self,images_df,mode="train"):
@@ -45,7 +49,28 @@ class knifeDataset(Dataset):
     def read_images(self,index):
         row = self.images_df.iloc[index]
         filename = str(row.Id)
-        im = cv2.imread(filename)[:,:,::-1]
+        im = cv2.imread(filename)[:,:,::-1]  # OpenCV reads images in BGR format by default, so we change to RGB
         return im, filename
 
 
+if __name__ == '__main__':
+    train_imlist = pd.read_csv("train.csv")
+    d1 = knifeDataset(train_imlist)
+
+    num_images = 9
+    random_indices = random.sample(range(5000), num_images)
+    # Create a grid of subplots to display the images
+    fig, axes = plt.subplots(3, 3, figsize=(8, 8))
+    fig.tight_layout()
+
+    # Iterate through the dataset to get images and display them
+    for i, index in enumerate(random_indices):
+        image, label, filename = d1[index]
+
+        # Transform the image tensor to a NumPy array and adjust dimensions
+        image_np = T.ToPILImage()(image).convert("RGB")  # Convert tensor to PIL image
+        axes[i // 3, i % 3].imshow(image_np)
+        axes[i // 3, i % 3].set_title(f"Label: {label}")
+        axes[i // 3, i % 3].axis('off')
+
+    plt.savefig('VIS_data.png')
