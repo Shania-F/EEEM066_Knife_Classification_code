@@ -149,7 +149,7 @@ for epoch in range(0,config.epochs):
 
     # Saving the model
     if (epoch + 1)%10 == 0:
-        filename = "Knife-Effb0-E" + str(epoch + 1)+  ".pt"
+        filename = "logs/Knife-Effb0-E" + str(epoch + 1)+  ".pt"
         torch.save(model.state_dict(), filename)
     
 writer.close()
