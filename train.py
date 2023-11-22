@@ -121,12 +121,12 @@ val_gen = knifeDataset(val_imlist,mode="val")
 val_loader = DataLoader(val_gen,batch_size=config.batch_size,shuffle=False,pin_memory=True,num_workers=8)
 
 ## Loading the model to run
-# model = timm.create_model('tf_efficientnet_b0', pretrained=True,num_classes=config.n_classes)
+model = timm.create_model('tf_efficientnet_b0', pretrained=True,num_classes=config.n_classes)
 # model = timm.create_model('resnet34', pretrained=True, num_classes=config.n_classes)
 # model = my_models.MyNet()
-model = timm.create_model('vit_small_patch16_224', pretrained=True, num_classes=192)
+# model = timm.create_model('vit_small_patch16_224', pretrained=True, num_classes=192)
 
-log.write('Using model: vit_small\n')
+log.write('Using model: efficientnet\n')
 
 # TODO if checkpoint exists, load
 # if os.path.exists("./Knife-Effb0-E20.pt"):
