@@ -13,6 +13,8 @@ import timm
 from utils import *
 warnings.filterwarnings('ignore')
 
+import my_models
+
 # Validating the model
 def evaluate(val_loader,model):
     model.cuda()
@@ -55,9 +57,17 @@ print('Creating test dataloader')
 test_gen = knifeDataset(test_files,mode="val")
 test_loader = DataLoader(test_gen,batch_size=64,shuffle=False,pin_memory=True,num_workers=8)
 
-print('loading trained model')
-model = timm.create_model('tf_efficientnet_b0', pretrained=True,num_classes=config.n_classes)
-model.load_state_dict(torch.load('Knife-Effb0-E20.pt'))
+print('loading trained model: ')
+# model = timm.create_model('tf_efficientnet_b0', pretrained=True,num_classes=config.n_classes)
+# 20 ep - 0.6742, 30 ep - 
+# model = timm.create_model('resnet34', pretrained=True,num_classes=config.n_classes)
+# 0.6742
+# model = my_models.MyNet()
+# 0.6840
+model = timm.create_model('vit_small_patch16_224', pretrained=True, num_classes=192)
+
+model.load_state_dict(torch.load('logs/vit_small/Knife-Effb0-E40.pt'))
+print(model)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model.to(device)
 

@@ -15,6 +15,7 @@ from utils import *
 warnings.filterwarnings('ignore')
 
 from torch.utils.tensorboard import SummaryWriter
+import my_models
 
 ## Writing the loss and results
 if not os.path.exists("./logs/"):
@@ -120,8 +121,18 @@ val_gen = knifeDataset(val_imlist,mode="val")
 val_loader = DataLoader(val_gen,batch_size=config.batch_size,shuffle=False,pin_memory=True,num_workers=8)
 
 ## Loading the model to run
-model = timm.create_model('tf_efficientnet_b0', pretrained=True,num_classes=config.n_classes)
+# model = timm.create_model('tf_efficientnet_b0', pretrained=True,num_classes=config.n_classes)
+# model = timm.create_model('resnet34', pretrained=True, num_classes=config.n_classes)
+# model = my_models.MyNet()
+model = timm.create_model('vit_small_patch16_224', pretrained=True, num_classes=192)
+
+log.write('Using model: vit_small\n')
+
 # TODO if checkpoint exists, load
+# if os.path.exists("./Knife-Effb0-E20.pt"):
+#   print("Loading saved checkpoint")
+#   model.load_state_dict(torch.load('./Knife-Effb0-E10.pt'))
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model.to(device)
 
@@ -151,5 +162,6 @@ for epoch in range(0,config.epochs):
     if (epoch + 1)%10 == 0:
         filename = "logs/Knife-Effb0-E" + str(epoch + 1)+  ".pt"
         torch.save(model.state_dict(), filename)
+        # TODO save all so we can reload training
     
 writer.close()
