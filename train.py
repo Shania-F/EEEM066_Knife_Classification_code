@@ -16,6 +16,8 @@ warnings.filterwarnings('ignore')
 
 from torch.utils.tensorboard import SummaryWriter
 import my_models
+import torch
+torch.manual_seed(42)
 
 ## Writing the loss and results
 if not os.path.exists("./logs/"):
@@ -32,6 +34,8 @@ log.write('---------------------------------------------------------------------
 ## Training the model
 def train(train_loader,model,criterion,optimizer,epoch,valid_accuracy,start):
     losses = AverageMeter()
+    acc = AverageMeter()
+
     model.train()
     model.training=True
     for i,(images,target,fnames) in enumerate(train_loader):
@@ -43,6 +47,8 @@ def train(train_loader,model,criterion,optimizer,epoch,valid_accuracy,start):
         # improves performance
         with torch.cuda.amp.autocast():
             logits = model(img)
+            preds = logits.softmax(1)
+
         loss = criterion(logits, label)
         losses.update(loss.item(),images.size(0))  # average loss over batch of 16
         scaler.scale(loss).backward()  # CALC GRADIENTS
@@ -51,6 +57,8 @@ def train(train_loader,model,criterion,optimizer,epoch,valid_accuracy,start):
         optimizer.zero_grad()
         scheduler.step()
 
+        valid_map5, valid_acc1, valid_acc5 = map_accuracy(preds, label) # values for the current batch of 16
+        acc.update(valid_acc1,img.size(0)) # add it to the running average
         print('\r',end='',flush=True)
         message = '%s %5.1f %6.1f        |      %0.3f     |      %0.3f     | %s' % (\
                 "train", i, epoch,losses.avg,valid_accuracy[0],time_to_str((timer() - start),'min'))
@@ -58,7 +66,7 @@ def train(train_loader,model,criterion,optimizer,epoch,valid_accuracy,start):
     log.write("\n")
     log.write(message)
 
-    return [losses.avg]
+    return [losses.avg, acc.avg]
 
 # Validating the model
 def evaluate(val_loader,model,criterion,epoch,train_loss,start):
@@ -67,6 +75,7 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,start):
     model.training=False
     map = AverageMeter()
     losses = AverageMeter()
+    acc = AverageMeter()
 
     with torch.no_grad():
         for i, (images,target,fnames) in enumerate(val_loader):
@@ -81,6 +90,7 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,start):
             losses.update(loss.item(), images.size(0))
             
             valid_map5, valid_acc1, valid_acc5 = map_accuracy(preds, label)
+            acc.update(valid_acc1,img.size(0))
             map.update(valid_map5,img.size(0))
             print('\r',end='',flush=True)
             message = '%s   %5.1f %6.1f       |      %0.3f     |      %0.3f    | %s' % (\
@@ -88,7 +98,7 @@ def evaluate(val_loader,model,criterion,epoch,train_loss,start):
             print(message, end='',flush=True)
         log.write("\n")  
         log.write(message)
-    return [map.avg, losses.avg]
+    return [map.avg, losses.avg, acc.avg]
 
 ## Computing the mean average precision, accuracy 
 def map_accuracy(probs, truth, k=5):
@@ -128,7 +138,7 @@ model = timm.create_model('tf_efficientnet_b0', pretrained=True,num_classes=conf
 
 log.write('Using model: efficientnet\n')
 
-# TODO if checkpoint exists, load
+# TODO
 # if os.path.exists("./Knife-Effb0-E20.pt"):
 #   print("Loading saved checkpoint")
 #   model.load_state_dict(torch.load('./Knife-Effb0-E10.pt'))
@@ -144,24 +154,30 @@ criterion = nn.CrossEntropyLoss().cuda()
 ############################# Training #################################
 start_epoch = 0
 val_metrics = [0]
+
+# if checkpoint exists, load
+check_path = "/content/drive/MyDrive/EEEM066_Knife_Classification_code/logs/Knife-Effb0-E7.pt"
+model, optimizer, start_epoch = load_checkpoint(model, optimizer, check_path)
+
 scaler = torch.cuda.amp.GradScaler()  # Assuming you have scaler defined somewhere
 # used to keep gradients in a good range, Mixed Precision (AMP)
 start = timer()
 writer = SummaryWriter(log_dir='logs')
 
 #train
-for epoch in range(0,config.epochs):
+for epoch in range(start_epoch, config.epochs):
     lr = get_learning_rate(optimizer)  # leftover code
     train_metrics = train(train_loader,model,criterion,optimizer,epoch,val_metrics,start)
     val_metrics = evaluate(val_loader,model,criterion,epoch,train_metrics,start)
 
     # Tensorboard
     writer.add_scalars('loss/trainval', {'train': train_metrics[0], 'validation': val_metrics[1]}, epoch + 1)
+    writer.add_scalars('accuracy/trainval', {'train': train_metrics[1], 'validation': val_metrics[2]}, epoch + 1)
 
     # Saving the model
-    if (epoch + 1)%10 == 0:
+    if (epoch + 1)%1 == 0:
         filename = "logs/Knife-Effb0-E" + str(epoch + 1)+  ".pt"
-        torch.save(model.state_dict(), filename)
-        # TODO save all so we can reload training
+        # torch.save(model.state_dict(), filename)
+        save_checkpoint(model, optimizer, epoch, filename)
     
 writer.close()

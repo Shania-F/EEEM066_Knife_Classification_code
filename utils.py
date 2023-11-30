@@ -10,8 +10,31 @@ import torch.nn.functional as F
 from sklearn.metrics import f1_score
 from torch.autograd import Variable
 import math
+
+# save and load checkpoints
+def save_checkpoint(model, optimizer, epoch, filepath):
+    checkpoint = {
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict()
+    }
+    torch.save(checkpoint, filepath)
+    print(f"Checkpoint saved at epoch {epoch+1}")
+
+def load_checkpoint(model, optimizer, filepath):
+    if os.path.isfile(filepath):
+        checkpoint = torch.load(filepath)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        epoch = checkpoint['epoch']
+        print(f"Checkpoint loaded from epoch {epoch}")
+        return model, optimizer, epoch
+    else:
+        print("No checkpoint found at specified path.")
+        return model, optimizer, 0
+
 # save best model
-def save_checkpoint(state, is_best_loss,is_best_f1,fold):
+def save_checkpoint_best(state, is_best_loss,is_best_f1,fold):
     filename = config.weights + config.model_name + os.sep +str(fold) + os.sep + "checkpoint.pth.tar"
     torch.save(state, filename)
     if is_best_loss:
