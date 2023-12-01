@@ -131,12 +131,12 @@ val_gen = knifeDataset(val_imlist,mode="val")
 val_loader = DataLoader(val_gen,batch_size=config.batch_size,shuffle=False,pin_memory=True,num_workers=8)
 
 ## Loading the model to run
-model = timm.create_model('tf_efficientnet_b0', pretrained=True,num_classes=config.n_classes)
-# model = timm.create_model('resnet34', pretrained=True, num_classes=config.n_classes)
+# model = timm.create_model('tf_efficientnet_b0', pretrained=True,num_classes=config.n_classes)
+model = timm.create_model('resnet34', pretrained=True, num_classes=config.n_classes)
 # model = my_models.MyNet()
 # model = timm.create_model('vit_small_patch16_224', pretrained=True, num_classes=192)
 
-log.write('Using model: efficientnet\n')
+log.write('Using model: resnet\n')
 
 # TODO
 # if os.path.exists("./Knife-Effb0-E20.pt"):
@@ -149,13 +149,14 @@ model.to(device)
 ############################# Parameters #################################
 optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
 scheduler = lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=config.epochs * len(train_loader), eta_min=0,last_epoch=-1)
-criterion = nn.CrossEntropyLoss().cuda()
+# criterion = nn.CrossEntropyLoss().cuda()
 
 # uncomment for weighted c.e
 class_weights = get_weights_tensor().cuda()
 log.write("Number of weights for weighted C.E: ", len(class_weights))
+print("Number of weights for weighted C.E: ", len(class_weights))
 print(type(class_weights))
-criterion = nn.CrossEntropyLoss(weight=class_weights)
+criterion = nn.CrossEntropyLoss(weight=class_weights).cuda()
 
 ############################# Training #################################
 start_epoch = 0

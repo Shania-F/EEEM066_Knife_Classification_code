@@ -33,7 +33,7 @@ class knifeDataset(Dataset):
         if self.mode == "train":
             X = T.Compose([T.ToPILImage(),
                     T.Resize((config.img_weight,config.img_height)),
-                    # T.TrivialAugmentWide(),
+                    T.TrivialAugmentWide(),
                     # T.ColorJitter(brightness=0.2,contrast=0,saturation=0,hue=0),
                     # T.RandomRotation(degrees=(0, 180)),
                     # T.RandomVerticalFlip(p=0.5),
