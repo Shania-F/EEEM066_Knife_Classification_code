@@ -34,10 +34,10 @@ class knifeDataset(Dataset):
             X = T.Compose([T.ToPILImage(),
                     T.Resize((config.img_weight,config.img_height)),
                     # T.TrivialAugmentWide(),
-                    T.ColorJitter(brightness=0.2,contrast=0,saturation=0,hue=0),
-                    T.RandomRotation(degrees=(0, 180)),
-                    T.RandomVerticalFlip(p=0.5),
-                    T.RandomHorizontalFlip(p=0.5),
+                    # T.ColorJitter(brightness=0.2,contrast=0,saturation=0,hue=0),
+                    # T.RandomRotation(degrees=(0, 180)),
+                    # T.RandomVerticalFlip(p=0.5),
+                    # T.RandomHorizontalFlip(p=0.5),
                     T.ToTensor(),
                     T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])(X)
         elif self.mode == "val":

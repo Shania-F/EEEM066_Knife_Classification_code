@@ -11,6 +11,23 @@ from sklearn.metrics import f1_score
 from torch.autograd import Variable
 import math
 
+import pandas as pd
+from sklearn.utils.class_weight import compute_class_weight
+
+def get_weights_tensor():
+  # Extract all occuring class labels as a numpy array
+  df = pd.read_csv('train.csv')
+  class_labels = df['Label'].values  
+  # print(len(class_labels))
+
+  unique_classes = np.unique(class_labels)
+
+  # Calculate class weights inversely proportional to class frequencies, so minority class gets a higher weight
+  class_weights = compute_class_weight('balanced', classes=unique_classes, y=class_labels)
+  # print("Class Weights:", class_weights)
+  # print(len(class_weights))
+  return torch.tensor(class_weights, dtype=torch.float16)
+
 # save and load checkpoints
 def save_checkpoint(model, optimizer, epoch, filepath):
     checkpoint = {

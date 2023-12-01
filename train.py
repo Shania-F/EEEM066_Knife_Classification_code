@@ -151,6 +151,12 @@ optimizer = optim.Adam(model.parameters(), lr=config.learning_rate)
 scheduler = lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=config.epochs * len(train_loader), eta_min=0,last_epoch=-1)
 criterion = nn.CrossEntropyLoss().cuda()
 
+# uncomment for weighted c.e
+class_weights = get_weights_tensor().cuda()
+log.write("Number of weights for weighted C.E: ", len(class_weights))
+print(type(class_weights))
+criterion = nn.CrossEntropyLoss(weight=class_weights)
+
 ############################# Training #################################
 start_epoch = 0
 val_metrics = [0]
@@ -175,7 +181,7 @@ for epoch in range(start_epoch, config.epochs):
     writer.add_scalars('accuracy/trainval', {'train': train_metrics[1], 'validation': val_metrics[2]}, epoch + 1)
 
     # Saving the model
-    if (epoch + 1)%1 == 0:
+    if (epoch + 1)%10 == 0:
         filename = "logs/Knife-Effb0-E" + str(epoch + 1)+  ".pt"
         # torch.save(model.state_dict(), filename)
         save_checkpoint(model, optimizer, epoch, filename)
